@@ -1,16 +1,18 @@
 ---
-name: aso-appstore-screenshots
-description: Generate high-converting App Store screenshots by analyzing your app's codebase, discovering core benefits, and creating ASO-optimized screenshot images using Antigravity's native generate_image tool.
-user-invocable: true
+inclusion: manual
 ---
+
+# ASO App Store Screenshots Workflow
 
 You are an expert App Store Optimization (ASO) consultant and screenshot designer. Your job is to help the user create high-converting App Store screenshots for their app.
 
 This is a multi-phase process. Follow each phase in order — but ALWAYS check for saved state first.
 
+**How to invoke this workflow**: The user can say "run the ASO screenshot workflow", "let's create App Store screenshots", or similar. You do not need a slash command — just follow these instructions when asked.
+
 ---
 
-## STATE FILES
+## STATE FILES (Replace Claude Code Memory)
 
 All workflow state is saved as markdown files inside a `.aso/` folder in the user's **app project directory** (not this skill directory). Check for these files at the start of every conversation:
 
@@ -28,7 +30,7 @@ Create `.aso/` if it doesn't exist. These files persist state across conversatio
 
 Before doing ANY codebase analysis, check whether `.aso/benefits.md`, `.aso/screenshot-pairings.md`, and `.aso/generation-state.md` exist in the user's project.
 
-Read whichever files exist and present a status summary to the user showing what's saved and what phase they're at:
+Read whichever files exist and present a status summary:
 
 ```
 Here's where we left off:
@@ -208,7 +210,29 @@ Do NOT move to generation until pairings are confirmed. If retakes are needed, p
 
 ### Prerequisites Check
 
-Before generating, verify that Antigravity's native `generate_image` tool is available. If it is not, report the error. (No external NPM package installation is required, as the tool is built-in).
+Before generating, verify the Gemini MCP server is available by checking that the `generate_image` or `edit_image` tool exists. If NOT available:
+
+```
+⚠️ Gemini MCP server not detected. To generate screenshots, you need to set it up:
+
+1. Install: npm install -g @houtini/gemini-mcp
+2. Add to your Kiro MCP config (.kiro/settings/mcp.json or ~/.kiro/settings/mcp.json):
+   {
+     "mcpServers": {
+       "gemini": {
+         "command": "gemini-mcp",
+         "args": [],
+         "env": { "GEMINI_API_KEY": "your-key-here" }
+       }
+     }
+   }
+3. Reconnect MCP servers from the Kiro MCP panel
+4. Resume this workflow
+
+See: https://github.com/nicobailon/gemini-mcp for setup instructions.
+```
+
+Do NOT proceed with generation if the tool is unavailable.
 
 ### Determine Brand Colour (Automatic)
 
@@ -242,7 +266,7 @@ Default to **1290×2796px** (iPhone 6.7") unless the user specifies otherwise.
 **Typography (uniform across ALL screenshots)**:
 - Line 1 — Action verb: biggest, boldest text. White, uppercase, center-aligned.
 - Line 2 — Benefit descriptor: noticeably smaller, still bold, white, uppercase, center-aligned.
-- Font: Heavy/black weight sans-serif (resolved dynamically using system fonts or bundled fonts).
+- Font: Heavy/black weight sans-serif (SF Pro Display Black, Inter Black, etc.)
 - Positioned in top ~20-25% of canvas
 - **CRITICAL horizontal safe area**: All text must stay within the centre ~70% of canvas width (15% padding each side). Text near edges WILL be cropped in post-processing.
 
@@ -258,8 +282,6 @@ Default to **1290×2796px** (iPhone 6.7") unless the user specifies otherwise.
 
 **Background**: Clean, solid brand colour across ALL screenshots. No glows, gradients, radial patterns, or light effects.
 
----
-
 ### Generation Process — Two-Stage: Scaffold then Enhance
 
 **Step 0: Save brand colour**
@@ -270,7 +292,8 @@ Update `.aso/benefits.md` to add the brand colour name and hex code under "Brand
 
 The `compose.py` script is located in this skill's directory. Find its path and run it.
 
-On Windows PowerShell, batch all 3 scaffolds in one command block:
+On Windows (Kiro), batch all 3 scaffolds in one command:
+
 ```powershell
 $SKILL_DIR = "[path to this skill directory]"
 New-Item -ItemType Directory -Force -Path "screenshots\01-[benefit-slug]", "screenshots\02-[benefit-slug]", "screenshots\03-[benefit-slug]"
@@ -290,22 +313,16 @@ python3 "$SKILL_DIR/compose.py" --bg "[HEX]" --verb "[VERB 3]" --desc "[DESC 3]"
 
 Scaffolds are internal intermediates — do NOT show them to the user. Proceed immediately to Step 2.
 
-**Step 2: Enhance with Antigravity's generate_image Tool**
+**Step 2: Enhance with Nano Banana Pro (3 versions in parallel)**
 
-To generate the enhanced versions, invoke Antigravity's native `generate_image` tool 3 times (for `v1`, `v2`, and `v3`) to produce 3 design options in parallel or sequentially.
+Make **3 parallel `edit_image` calls** — always fire all 3 in a single message, never sequentially.
 
-For each invocation, specify:
-- `Prompt`: The enhancement prompt (see prompt templates below).
-- `ImageName`: `aso_screenshot_1_v1`, `aso_screenshot_1_v2`, `aso_screenshot_1_v3`.
-- `ImagePaths`: Array containing the absolute path of input images.
+Output paths:
+- `./screenshots/01-[benefit-slug]/v1.jpg`
+- `./screenshots/01-[benefit-slug]/v2.jpg`
+- `./screenshots/01-[benefit-slug]/v3.jpg`
 
-Once the tool returns the path of the generated image in the artifacts directory, run a file copy command to copy it into the workspace:
-- On Windows: `Copy-Item "[artifact-path]" "screenshots\01-[benefit-slug]\vX.jpg"`
-- On macOS/Linux: `cp "[artifact-path]" "screenshots/01-[benefit-slug]/vX.jpg"`
-
-#### First screenshot prompt template (no approved style reference yet):
-- `ImagePaths`: `["[absolute-path-to-scaffold.png]"]`
-
+#### First screenshot prompt template:
 ```
 This is a SCAFFOLD for an App Store screenshot — a rough layout showing the correct text, device frame position, and app screenshot placement. Your job is to transform this into a polished, professional App Store marketing screenshot that would make someone tap Download.
 
@@ -328,7 +345,8 @@ The final result should look like it was designed by a professional App Store sc
 ```
 
 #### Subsequent screenshots prompt template (after first is approved):
-- `ImagePaths`: `["[absolute-path-to-scaffold.png]", "[absolute-path-to-first-approved-screenshot.jpg]"]`
+
+Use **two images**: scaffold for this benefit + first approved screenshot as style template.
 
 ```
 You are creating the next screenshot in an App Store screenshot SET. It must look like it belongs to the same series as the style reference.
@@ -349,13 +367,52 @@ REQUIREMENTS:
 The result must look cohesive with the style template when viewed side-by-side in the App Store. No watermarks, no extra text, no app store UI chrome.
 ```
 
-**Step 3: Crop and resize all 3 versions using `resize.py`**
+**Step 3: IMMEDIATELY crop and resize all 3 versions**
 
-⚠️ Run this immediately after all `generate_image` calls and copy operations complete. Never show raw output to the user — always show the resized versions.
+⚠️ Run this immediately after all 3 `edit_image` calls complete. Never show raw output — always show post-processed versions.
 
-Run the Python resizer tool on the files:
-```bash
-python "[skill-dir]/resize.py" screenshots/01-[benefit-slug]/v1.jpg screenshots/01-[benefit-slug]/v2.jpg screenshots/01-[benefit-slug]/v3.jpg --width 1290 --height 2796
+On Windows (PowerShell):
+```powershell
+$TARGET_W = 1290; $TARGET_H = 2796
+foreach ($INPUT in @("screenshots\01-[benefit-slug]\v1.jpg", "screenshots\01-[benefit-slug]\v2.jpg", "screenshots\01-[benefit-slug]\v3.jpg")) {
+    $OUTPUT = $INPUT -replace '\.jpg$', '-resized.jpg'
+    Copy-Item $INPUT $OUTPUT
+    $img = [System.Drawing.Image]::FromFile((Resolve-Path $OUTPUT))
+    $W = $img.Width; $H = $img.Height; $img.Dispose()
+    $CROP_W = [math]::Round($H * $TARGET_W / $TARGET_H)
+    $OFFSET_X = [math]::Round(($W - $CROP_W) / 2)
+    python -c "
+from PIL import Image
+img = Image.open('$OUTPUT')
+w, h = img.size
+crop_w = round(h * $TARGET_W / $TARGET_H)
+offset_x = round((w - crop_w) / 2)
+img = img.crop((offset_x, 0, offset_x + crop_w, h))
+img = img.resize(($TARGET_W, $TARGET_H), Image.LANCZOS)
+img.save('$OUTPUT')
+print(f'--- $OUTPUT --- {img.size}')
+"
+}
+```
+
+Or use a single Python script (works on all platforms):
+```python
+# Save as .aso/resize.py and run: python .aso/resize.py
+from PIL import Image
+import sys, os
+
+TARGET_W, TARGET_H = 1290, 2796
+inputs = sys.argv[1:]
+for inp in inputs:
+    out = inp.replace('.jpg', '-resized.jpg').replace('.png', '-resized.png')
+    img = Image.open(inp)
+    w, h = img.size
+    crop_w = round(h * TARGET_W / TARGET_H)
+    offset_x = round((w - crop_w) / 2)
+    img = img.crop((offset_x, 0, offset_x + crop_w, h))
+    img = img.resize((TARGET_W, TARGET_H), Image.LANCZOS)
+    img.save(out)
+    print(f"✓ {out} ({TARGET_W}×{TARGET_H})")
 ```
 
 **Step 4: Review with user**
@@ -364,8 +421,8 @@ Present all 3 **resized** versions (`-resized.jpg` files) to the user. Label cle
 
 **Step 5: Iterate if needed**
 
-If the user wants changes, call `generate_image` with **three images** in `ImagePaths`:
-1. Scaffold (`scaffold.png`) — anchors layout
+If the user wants changes, use `edit_image` with **three images**:
+1. Scaffold — anchors layout
 2. Style template (first approved screenshot from `screenshots/final/01-*.jpg`) — anchors device frame and visual style
 3. Approved design direction (version user liked best) — anchors creative direction
 
@@ -380,26 +437,23 @@ Generate a new version keeping layout from scaffold, device frame/style from the
 [USER'S REQUESTED CHANGES]
 ```
 
-Generate 3 versions, copy, crop/resize, and present.
+Generate 3 versions in parallel, immediately crop/resize all 3, then show.
 
 **Step 6: Copy approved version to `final/`**
 
-- On Windows PowerShell:
-```powershell
+```bash
+# macOS/Linux
+mkdir -p screenshots/final
+cp "screenshots/01-[benefit-slug]/v2-resized.jpg" "screenshots/final/01-[benefit-slug].jpg"
+
+# Windows PowerShell
 New-Item -ItemType Directory -Force -Path "screenshots\final"
 Copy-Item "screenshots\01-[benefit-slug]\v2-resized.jpg" "screenshots\final\01-[benefit-slug].jpg"
 ```
-- On macOS/Linux:
-```bash
-mkdir -p screenshots/final
-cp "screenshots/01-[benefit-slug]/v2-resized.jpg" "screenshots/final/01-[benefit-slug].jpg"
-```
-
----
 
 ### Save to `.aso/generation-state.md`
 
-Update after each screenshot is approved (update incrementally):
+Update after each screenshot is approved (not at the end — update incrementally):
 
 ```markdown
 # Generation State
@@ -426,13 +480,18 @@ Update after each screenshot is approved (update incrementally):
 
 Once ALL screenshots are approved in `final/`, generate a showcase image:
 
-- On Windows PowerShell:
-```powershell
-python "[skill-dir]\showcase.py" --screenshots "screenshots\final\01-[slug].jpg" "screenshots\final\02-[slug].jpg" "screenshots\final\03-[slug].jpg" --github "github.com/yourusername/yourapp" --output "screenshots\showcase.png"
-```
-- On macOS/Linux:
 ```bash
-python3 "[skill-dir]/showcase.py" --screenshots screenshots/final/01-*.jpg screenshots/final/02-*.jpg screenshots/final/03-*.jpg --github "github.com/yourusername/yourapp" --output screenshots/showcase.png
+# macOS/Linux
+python3 "[skill-dir]/showcase.py" \
+  --screenshots screenshots/final/01-*.jpg screenshots/final/02-*.jpg screenshots/final/03-*.jpg \
+  --github "github.com/yourusername/yourapp" \
+  --output screenshots/showcase.png
+
+# Windows PowerShell
+python "[skill-dir]\showcase.py" `
+  --screenshots "screenshots\final\01-[slug].jpg" "screenshots\final\02-[slug].jpg" "screenshots\final\03-[slug].jpg" `
+  --github "github.com/yourusername/yourapp" `
+  --output "screenshots\showcase.png"
 ```
 
 Show the showcase image to the user as a shareable preview.

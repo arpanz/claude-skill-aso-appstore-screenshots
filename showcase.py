@@ -73,7 +73,7 @@ def create_showcase(screenshots, output_path, github_url=None):
         )
 
     canvas.save(output_path, "PNG")
-    print(f"✓ {output_path} ({total_w}×{total_h})")
+    print(f"OK: {output_path} ({total_w}x{total_h})")
 
 
 def main():

@@ -1,6 +1,8 @@
 # ASO App Store Screenshots
 
-A Claude Code skill that generates high-converting App Store screenshots for your iOS app. It analyzes your codebase, identifies core benefits, and creates professional screenshot images using AI.
+A skill for generating high-converting App Store screenshots for your iOS app. It analyzes your codebase, identifies core benefits, and creates professional screenshot images using AI.
+
+Works with **Claude Code** (via slash command) and **Kiro** (via steering file). See [KIRO.md](KIRO.md) for Kiro-specific setup.
 
 ## What It Does
 
@@ -11,19 +13,23 @@ A Claude Code skill that generates high-converting App Store screenshots for you
 
 ## Installation
 
-### 1. Add the skill to Claude Code
+### Claude Code
 
 ```bash
 claude install-skill github.com/adamlyttleapps/claude-skill-aso-appstore-screenshots
 ```
 
-### 2. Install Python dependencies
+### Kiro
+
+See [KIRO.md](KIRO.md) for full Kiro setup instructions. The short version: copy `.kiro/steering/aso-appstore-screenshots.md` into your app project's `.kiro/steering/` folder, then reference it in chat.
+
+### Python dependencies
 
 ```bash
 pip install Pillow
 ```
 
-### 3. Font requirement
+### Font requirement
 
 The skill uses **SF Pro Display Black** for headline text. On macOS, install it from [Apple's developer fonts](https://developer.apple.com/fonts/). The expected path is:
 
@@ -31,7 +37,7 @@ The skill uses **SF Pro Display Black** for headline text. On macOS, install it 
 /Library/Fonts/SF-Pro-Display-Black.otf
 ```
 
-### 4. Set up Gemini MCP (for AI enhancement)
+### Gemini MCP (for AI enhancement)
 
 The generation phase requires [@houtini/gemini-mcp](https://www.npmjs.com/package/@houtini/gemini-mcp) to be configured as an MCP server in Claude Code:
 
@@ -43,10 +49,16 @@ Then add it to your Claude Code MCP config (`~/.claude/settings.json` or project
 
 ## Usage
 
-From within your app's project directory, run:
+### Claude Code
 
 ```
 /aso-appstore-screenshots
+```
+
+### Kiro
+
+```
+#aso-appstore-screenshots let's create App Store screenshots for my app
 ```
 
 The skill will guide you through each phase interactively. Progress is saved to Claude Code's memory system, so you can resume across conversations.

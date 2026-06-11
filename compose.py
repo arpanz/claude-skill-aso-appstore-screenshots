@@ -60,15 +60,64 @@ def word_wrap(draw, text, font, max_w):
     return lines
 
 
+def resolve_font(size):
+    """Dynamically search for SF Pro Display Black, Arial Black, Segoe UI Black, or standard fonts on Windows/macOS/Linux."""
+    candidates = []
+    
+    # Try FONT_PATH if it exists
+    if os.path.exists(FONT_PATH):
+        candidates.append(FONT_PATH)
+        
+    import platform
+    system = platform.system()
+    if system == "Windows":
+        win_dir = os.environ.get("SystemRoot", "C:\\Windows")
+        fonts_dir = os.path.join(win_dir, "Fonts")
+        candidates.extend([
+            os.path.join(fonts_dir, "SF-Pro-Display-Black.otf"),
+            os.path.join(fonts_dir, "ariblk.ttf"),      # Arial Black (heavy/modern sans-serif)
+            os.path.join(fonts_dir, "seguibl.ttf"),     # Segoe UI Black
+            os.path.join(fonts_dir, "arialbd.ttf"),     # Arial Bold
+            os.path.join(fonts_dir, "impact.ttf")       # Impact
+        ])
+    elif system == "Darwin": # macOS
+        candidates.extend([
+            "/Library/Fonts/SF-Pro-Display-Black.otf",
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/System/Library/Fonts/SFNS.ttf"
+        ])
+    else: # Linux
+        candidates.extend([
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
+        ])
+        
+    candidates.append("SF-Pro-Display-Black.otf")
+    
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+                
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
 def fit_font(text, max_w, size_max, size_min):
     """Return the largest font size where text fits within max_w."""
     dummy = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
     for size in range(size_max, size_min - 1, -4):
-        font = ImageFont.truetype(FONT_PATH, size)
+        font = resolve_font(size)
         bbox = dummy.textbbox((0, 0), text, font=font)
         if (bbox[2] - bbox[0]) <= max_w:
             return font
-    return ImageFont.truetype(FONT_PATH, size_min)
+    return resolve_font(size_min)
 
 
 def draw_centered(draw, y, text, font, max_w=None):
@@ -92,7 +141,7 @@ def compose(bg_hex, verb, desc, screenshot_path, output_path):
 
     # ── 2. Measure text, then center between top of canvas & device ─
     verb_font = fit_font(verb.upper(), MAX_VERB_W, VERB_SIZE_MAX, VERB_SIZE_MIN)
-    desc_font = ImageFont.truetype(FONT_PATH, DESC_SIZE)
+    desc_font = resolve_font(DESC_SIZE)
 
     # Measure total text block height (dry run at y=0)
     dummy = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
@@ -156,7 +205,7 @@ def compose(bg_hex, verb, desc, screenshot_path, output_path):
 
     # ── 7. Save ────────────────────────────────────────────────────
     canvas.convert("RGB").save(output_path, "PNG")
-    print(f"✓ {output_path} ({CANVAS_W}×{CANVAS_H})")
+    print(f"OK: {output_path} ({CANVAS_W}x{CANVAS_H})")
 
 
 def main():
