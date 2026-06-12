@@ -13,8 +13,8 @@ import os
 from PIL import Image, ImageDraw, ImageFont, ImageChops
 
 # ── Canvas ──────────────────────────────────────────────────────────
-CANVAS_W = 1290
-CANVAS_H = 2900
+CANVAS_W = 1484
+CANVAS_H = 2610
 
 # ── Device template constants ───────────────────────────────────────
 BEZEL = 12
@@ -34,10 +34,10 @@ SUBTITLE_SIZE = 80
 VERB_DESC_GAP = 12
 DESC_SUBTITLE_GAP = 24
 DESC_LINE_GAP = 20
-MAX_TEXT_W = int(CANVAS_W * 0.85)
-MAX_VERB_W = int(CANVAS_W * 0.75)
+MAX_TEXT_W = 1096
+MAX_VERB_W = 1109
 
-FONT_PATH = os.path.join(os.path.dirname(__file__), "assets", "PlusJakartaSans-Bold.ttf")
+FONT_PATH = os.path.join(os.path.dirname(__file__), "assets", "HelveticaNeueBold.ttf")
 FONT_MEDIUM_PATH = os.path.join(os.path.dirname(__file__), "assets", "PlusJakartaSans-Medium.ttf")
 FRAME_PATH = os.path.join(os.path.dirname(__file__), "assets", "device_frame.png")
 
@@ -256,7 +256,7 @@ def compose(bg_start_hex, bg_end_hex, verb, desc, subtitle, screenshot_path, out
 
     # ── 2. Measure text, then calculate device position dynamically ─
     v_max = verb_size if verb_size else VERB_SIZE_MAX
-    verb_font = fit_font(verb.upper(), MAX_VERB_W, v_max, VERB_SIZE_MIN, FONT_PATH)
+    verb_font = fit_font(verb.upper(), MAX_VERB_W, v_max, 100, FONT_PATH)
     
     desc_is_bold = desc.isupper() and len(desc.strip()) > 0
     desc_font = resolve_font(DESC_SIZE, FONT_PATH if desc_is_bold else FONT_MEDIUM_PATH)
@@ -291,8 +291,8 @@ def compose(bg_start_hex, bg_end_hex, verb, desc, subtitle, screenshot_path, out
     screen_x = device_x + BEZEL
     screen_y = device_y + BEZEL
     
-    # Calculate screen height to fit complete frame on the canvas with BOTTOM_MARGIN
-    screen_h = CANVAS_H - BOTTOM_MARGIN - screen_y - BEZEL
+    # Calculate screen height based on fixed bottom reference (Y=2840) to keep frame size same
+    screen_h = 2840 - screen_y - BEZEL
 
 
     # ── 4. Screenshot into screen area ──────────────────────────────
